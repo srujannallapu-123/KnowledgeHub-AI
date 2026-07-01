@@ -13,9 +13,9 @@ const Navbar = () => {
            <Image 
              src="/images/logo.svg.png"
              alt="" 
-             width={150}
-             height={150}
-             style={{ width: "150px", height: "auto" }}/>
+             width={120}
+             height={120}
+             style={{ width: "auto", height: "auto" }}/>
 
          </div>
        </Link>
