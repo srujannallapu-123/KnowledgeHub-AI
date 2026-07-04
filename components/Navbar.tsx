@@ -5,7 +5,15 @@ import NavItems from "./NavItems"
 
 
 
-const Navbar = () => {
+import {
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+
+const Navbar = async () => {
+  const { userId } = await auth();
   return (
     <nav className="navbar">
        <Link href="/">
@@ -21,7 +29,19 @@ const Navbar = () => {
        </Link>
        <div className="flex items-center gap-8">
          <NavItems/>
-         <p>Sign In</p>
+         {!userId && (
+           <>
+             <SignInButton mode="modal">
+               <button className="btn-signin">Sign In</button>
+             </SignInButton>
+             <SignUpButton mode="modal">
+               <button className="btn-secondary">Sign Up</button>
+             </SignUpButton>
+           </>
+         )}
+         {userId && ( 
+           <UserButton />
+         )}
        </div>
       
     </nav>
