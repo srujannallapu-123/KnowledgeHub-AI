@@ -11,9 +11,8 @@ const CompanionsLibrary = async({searchParams}: SearchParams) => {
 
   const filters = await searchParams;
 
-   const subject = filters.subject ? filters.subject : '';
-
-   const topic = filters.subject ? filters.topic : '';
+   const subject = filters.subject ?? "";
+  const topic = filters.topic ?? "";
 
    const companions = await getAllCompanions({subject, topic});
 
