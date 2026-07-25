@@ -11,7 +11,7 @@ export const getSubjectColor = (subject: string) => {
   return subjectsColors[subject as keyof typeof subjectsColors];
 };
 
-/* export const configureAssistant = (voice: string, style: string) => {
+export const configureAssistant = (voice: string, style: string) => {
   const voiceId = voices[voice as keyof typeof voices][
           style as keyof (typeof voices)[keyof typeof voices]
           ] || "sarah";
@@ -58,4 +58,4 @@ export const getSubjectColor = (subject: string) => {
     serverMessages: [],
   };
   return vapiAssistant;
-}; */
+};
