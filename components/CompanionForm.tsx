@@ -39,7 +39,13 @@ const formSchema = z.object({
   topic: z.string().min( 1, {message: 'Topic is required'}),
   voice: z.string().min( 1, {message: 'Voice is required'}),
   style: z.string().min( 1, {message: 'Style is required'}),
-  duration: z.coerce.number().min( 1, {message: 'duration is required'}),
+  duration: z
+  .number({
+    message: "Duration is required",
+  })
+  .min(1, {
+    message: "Duration must be at least 1 minute",
+  }),
 })
 
 
@@ -200,18 +206,28 @@ const CompanionForm = () => {
 
 
         <FormField
-          control={form.control}
-          name="duration"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Estimated session duration in minutes</FormLabel>
-              <FormControl>
-                <Input placeholder="15"
-                 type="number"
-                  {...field}
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                  className="input" />
+  control={form.control}
+  name="duration"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Estimated session duration in minutes</FormLabel>
+
+      <FormControl>
+        <Input
+          type="number"
+          min={1}
+          placeholder="15"
+          className="input"
+          name={field.name}
+          ref={field.ref}
+          onBlur={field.onBlur}
+          value={Number.isNaN(field.value) ? "" : field.value}
+          onChange={(event) => {
+            const value = event.target.value;
+
+            field.onChange(value === "" ? '' : Number(value));
+          }}
+        />
               </FormControl>
               <FormMessage />
             </FormItem>
