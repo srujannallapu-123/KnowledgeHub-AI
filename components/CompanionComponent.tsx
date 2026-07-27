@@ -2,7 +2,7 @@
 
 import { cn, configureAssistant, getSubjectColor } from "@/lib/utils"
 import { vapi } from "@/lib/vapi.sdk"
-import { CompanionComponentProps } from "@/types"
+import { CompanionComponentProps, SavedMessage } from "@/types"
 import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
 
@@ -11,6 +11,7 @@ import Lottie, { LottieRefCurrentProps } from "lottie-react";
 import soundwaves from '@/constants/soundwaves.json'
 import Vapi from "@vapi-ai/web"
 import { Variable } from "lucide-react"
+import { addToSessionHistory } from "@/lib/actions/companion.actions"
 
 
 enum CallStatus {
@@ -32,6 +33,8 @@ const CompanionComponent = ({companionId, subject, topic, name, userName, userIm
 
     const [isMuted, setIsMuted] = useState(false)
 
+    const [messages, setMessages] = useState<SavedMessage[]>([])
+
     const lottieRef = useRef<LottieRefCurrentProps>(null);
 
     useEffect(()=>{
@@ -50,9 +53,17 @@ const CompanionComponent = ({companionId, subject, topic, name, userName, userIm
        
       const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
 
-      const onCallEnd = () => setCallStatus(CallStatus.FINISHED);
+      const onCallEnd = () => {
+        setCallStatus(CallStatus.FINISHED)
+        addToSessionHistory(companionId)
+    };
 
-      const onMessage = () =>{}
+     const onMessage = (message: Message) => {
+            if(message.type === 'transcript' && message.transcriptType === 'final') {
+                const newMessage= { role: message.role, content: message.transcript}
+                setMessages((prev) => [ ...prev, newMessage])
+            }
+        }
 
       const onSpeechStart = () => setIsSpeaking(true)
       const onSpeechEnd = () => setIsSpeaking(false)
@@ -115,78 +126,81 @@ const CompanionComponent = ({companionId, subject, topic, name, userName, userIm
     }
 
 
-  return (
-    <section className="flex flex-col h-[70vh]">
-      <section className="flex gap-8 max-sm:flex-col">
-        <div className="companion-section">
-            <div className="companion-avatar"
-             style={{backgroundColor:getSubjectColor(subject)}}>
+   return (
+        <section className="flex flex-col h-[70vh]">
+            <section className="flex gap-8 max-sm:flex-col">
+                <div className="companion-section">
+                    <div className="companion-avatar" style={{ backgroundColor: getSubjectColor(subject)}}>
+                        <div
+                            className={
+                            cn(
+                                'absolute transition-opacity duration-1000', callStatus === CallStatus.FINISHED || callStatus === CallStatus.INACTIVE ? 'opacity-1001' : 'opacity-0', callStatus === CallStatus.CONNECTING && 'opacity-100 animate-pulse'
+                            )
+                        }>
+                            <Image src={`/icons/${subject}.svg`} alt={subject} width={150} height={150} className="max-sm:w-fit" />
+                        </div>
 
-             <div className={cn( 'absolute transition-opacity duration-1000',
-               callStatus === CallStatus.FINISHED || callStatus === CallStatus.INACTIVE ? 'opacity-1001' : 'opacity-0', callStatus === CallStatus.CONNECTING && 'opacity-100 animate-pulse' )}>
-              
-              <Image src={`/icons/${subject}.svg`} alt={subject} width={150} height={150} className="max-sm:w-fit" />
+                        <div className={cn('absolute transition-opacity duration-1000', callStatus === CallStatus.ACTIVE ? 'opacity-100': 'opacity-0')}>
+                            <Lottie
+                                lottieRef={lottieRef}
+                                animationData={soundwaves}
+                                autoplay={false}
+                                className="companion-lottie"
+                            />
+                        </div>
+                    </div>
+                    <p className="font-bold text-2xl">{name}</p>
+                </div>
 
-             </div>
+                <div className="user-section">
+                    <div className="user-avatar">
+                        <Image src={userImage} alt={userName} width={130} height={130} className="rounded-lg" />
+                        <p className="font-bold text-2xl">
+                            {userName}
+                        </p>
+                    </div>
+                    <button className="btn-mic" onClick={toggleMicrophone} disabled={callStatus !== CallStatus.ACTIVE}>
+                        <Image src={isMuted ? '/icons/mic-off.svg' : '/icons/mic-on.svg'} alt="mic" width={36} height={36} />
+                        <p className="max-sm:hidden">
+                            {isMuted ? 'Turn on microphone' : 'Turn off microphone'}
+                        </p>
+                    </button>
+                    <button className={cn('rounded-lg py-2 cursor-pointer transition-colors w-full text-white', callStatus ===CallStatus.ACTIVE ? 'bg-red-700' : 'bg-primary', callStatus === CallStatus.CONNECTING && 'animate-pulse')} onClick={callStatus === CallStatus.ACTIVE ? handleDisconnect : handleCall}>
+                        {callStatus === CallStatus.ACTIVE
+                        ? "End Session"
+                        : callStatus === CallStatus.CONNECTING
+                            ? 'Connecting'
+                        : 'Start Session'
+                        }
+                    </button>
+                </div>
+            </section>
 
-             <div className={cn('absolute transition-opacity duration-1000', callStatus === CallStatus.ACTIVE ? 'opacity-100' : 'opacity-0')}>
-                 
-                 <Lottie 
-                  lottieRef={lottieRef}
-                  animationData={soundwaves}
-                  autoplay={false}
-                  className="companion-lottie"
-                 
-                 />
-             </div>   
-            </div>
-            <p className="font-bold text-2xl">{name}</p>
+            <section className="transcript">
+                <div className="transcript-message no-scrollbar">
+                    {messages.map((message, index) => {
+                        if(message.role === 'assistant') {
+                            return (
+                                <p key={index} className="max-sm:text-sm">
+                                    {
+                                        name
+                                            .split(' ')[0]
+                                            .replace('/[.,]/g, ','')
+                                    }: {message.content}
+                                </p>
+                            )
+                        } else {
+                           return <p key={index} className="text-primary max-sm:text-sm">
+                                {userName}: {message.content}
+                            </p>
+                        }
+                    })}
+                </div>
 
-        </div>
-
-        <div className="user-section">
-          <div className="user-avatar">
-            <Image src={userImage} alt={userName} width={130} height={130} className="rounded-lg" />
-
-            <p className="font-bold text-2xl">
-                 {userName}
-            </p>
-
-          </div>
-          <button className="btn-mic" onClick={toggleMicrophone}>
-
-            <Image src={isMuted ? '/icons/mic-off.svg' : '/icons/mic-on.svg'} alt="mic" width={36} height={36} />
-
-            <p className="max-sm:hidden">
-               {isMuted ? 'Turn on microphone' : 'Turn off microphone'}
-            </p>
-          </button>
-
-          <button className={cn('rounded-lg py-2 cursor-pointer transition-colors w-full text-white',
-            callStatus === CallStatus.ACTIVE ? 'bg-red-700' : 'bg-primary', callStatus === CallStatus.CONNECTING && 'animate-pulse'
-          )} onClick={callStatus === CallStatus.ACTIVE ? handleDisconnect : handleCall}>
-             {callStatus === CallStatus.ACTIVE
-              ? "End Session"
-              : callStatus === CallStatus.CONNECTING
-                ? 'Connecting'
-                : 'start session'}
-          </button>
-
-        </div>
-
-      </section>
-
-      <section className="transcript">
-        <div className="transcript-message no-scrollbar">
-           MESSAGES
-        </div>
-
-        <div className="transcript-fade"/>
-
-      </section>
-
-    </section>
-  )
+                <div className="transcript-fade" />
+            </section>
+        </section>
+    )
 }
 
 export default CompanionComponent
