@@ -34,19 +34,25 @@ import { useRouter } from "next/navigation"
 
 
 const formSchema = z.object({
-  name: z.string().min( 1, {message: 'name is required'}),
-  subject: z.string().min( 1, {message: 'Subject is required'}),
-  topic: z.string().min( 1, {message: 'Topic is required'}),
-  voice: z.string().min( 1, {message: 'Voice is required'}),
-  style: z.string().min( 1, {message: 'Style is required'}),
-  duration: z
-  .number({
-    message: "Duration is required",
-  })
-  .min(1, {
+  name: z.string().min(1, {
+    message: "Name is required",
+  }),
+  subject: z.string().min(1, {
+    message: "Subject is required",
+  }),
+  topic: z.string().min(1, {
+    message: "Topic is required",
+  }),
+  voice: z.string().min(1, {
+    message: "Voice is required",
+  }),
+  style: z.string().min(1, {
+    message: "Style is required",
+  }),
+  duration: z.number().min(1, {
     message: "Duration must be at least 1 minute",
   }),
-})
+});
 
 
 const CompanionForm = () => {
