@@ -55,41 +55,40 @@ const formSchema = z.object({
 });
 
 
+type FormInput = z.input<typeof formSchema>;
+type FormOutput = z.output<typeof formSchema>;
+
+
 const CompanionForm = () => {
 
   const router = useRouter();
 
      // 1. Define your form.
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name : '',
-      subject : '',
-      topic : '',
-      voice : '',
-      style: '',
-      duration : 15,
-
-
+      name: "",
+      subject: "",
+      topic: "",
+      voice: "",
+      style: "",
+      duration: 15,
     },
-  })
+  });
  
   // 2. Define a submit handler.
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    
+ const onSubmit = async (values: FormOutput) => {
+    console.log(values);
+
     const companion = await createCompanion(values);
 
-     if(companion){
-
-      
-       router.push(`/companions/${companion.id}`);
-
-       }else{
-        console.log('Failed to create a companion');
-        router.push('/');
-       }
-
-  }
+    if (companion) {
+      router.push(`/companions/${companion.id}`);
+    } else {
+      console.log("Failed to create a companion");
+      router.push("/");
+    }
+  };
 
 
   return (
