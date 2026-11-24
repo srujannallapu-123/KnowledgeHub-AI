@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:17
+    container_name: knowledgehub-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: knowledgehub
+      POSTGRES_PASSWORD: local_dev_password
+      POSTGRES_DB: knowledgehub_db
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knowledgehub -d knowledgehub_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: knowledgehub-backend
+    restart: unless-stopped
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      DATABASE_URL: postgresql://knowledgehub:local_dev_password@db:5432/knowledgehub_db
+      PORT: "5000"
+      FRONTEND_URL: http://localhost:3000
+
+    ports:
+      - "127.0.0.1:5000:5000"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: knowledgehub-frontend
+    restart: unless-stopped
+
+    env_file:
+      - ./.env.local
+
+    environment:
+      DATABASE_URL: postgresql://knowledgehub:local_dev_password@db:5432/knowledgehub_db
+      BACKEND_API_URL: http://backend:5000/api
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: http://localhost:3000
+
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    external: true
+    name: backend_postgres_data

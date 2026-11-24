@@ -1,13 +1,41 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { auth } from "@/auth";
+import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)', '/'])
+export default auth((request) => {
+    const pathname = request.nextUrl.pathname;
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect()
-  }
-})
+    const isLoggedIn = Boolean(request.auth);
+
+    const isAuthPage =
+        pathname.startsWith("/sign-in") ||
+        pathname.startsWith("/sign-up");
+
+    const isProtectedPage =
+        pathname.startsWith("/companions") ||
+        pathname.startsWith("/my-journey") ||
+        pathname.startsWith("/subscription");
+
+    if (isProtectedPage && !isLoggedIn) {
+        return NextResponse.redirect(
+            new URL("/sign-in", request.url)
+        );
+    }
+
+    if (isAuthPage && isLoggedIn) {
+        return NextResponse.redirect(
+            new URL("/", request.url)
+        );
+    }
+
+    return NextResponse.next();
+});
 
 export const config = {
-  matcher: ['/((?!.*\\..*|_next).*)', '/', '/(api|trpc)(.*)', '/__clerk/:path*'],
-}
+    matcher: [
+        "/companions/:path*",
+        "/my-journey/:path*",
+        "/subscription/:path*",
+        "/sign-in/:path*",
+        "/sign-up/:path*",
+    ],
+};

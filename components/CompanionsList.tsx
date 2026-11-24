@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -12,20 +11,22 @@ import { cn, getSubjectColor } from "@/lib/utils";
 import { Companion } from "@/types";
 import Image from "next/image";
 import Link from "next/link";
+import DeleteCompanionButton from "@/components/DeleteCompanionButton";
 
 interface CompanionsListProps {
   title: string;
   companions?: Companion[];
   classNames?: string;
+  showDelete?: boolean;
 }
 
 const CompanionsList = ({
   title,
   companions,
   classNames,
+  showDelete = false,
 }: CompanionsListProps) => {
 
-  // Remove duplicate companions based on their ID
   const uniqueCompanions = Array.from(
     new Map(
       (companions ?? []).map((companion) => [
@@ -53,6 +54,12 @@ const CompanionsList = ({
             <TableHead className="text-lg text-right">
               Duration
             </TableHead>
+
+            {showDelete && (
+              <TableHead className="text-lg text-right">
+                Actions
+              </TableHead>
+            )}
           </TableRow>
         </TableHeader>
 
@@ -126,8 +133,28 @@ const CompanionsList = ({
                     />
                   </div>
                 </TableCell>
+
+                {showDelete && (
+                  <TableCell className="text-right">
+                    <DeleteCompanionButton
+                      companionId={id}
+                      companionName={name}
+                    />
+                  </TableCell>
+                )}
               </TableRow>
             )
+          )}
+
+          {uniqueCompanions.length === 0 && (
+            <TableRow>
+              <TableCell
+                colSpan={showDelete ? 4 : 3}
+                className="py-8 text-center text-gray-500"
+              >
+                No companions found.
+              </TableCell>
+            </TableRow>
           )}
         </TableBody>
       </Table>

@@ -1,27 +1,53 @@
-import Image from "next/image"
-import Link from "next/link"
-
+import Link from "next/link";
+import Image from "next/image";
+import { Plus, Sparkles } from "lucide-react";
 
 const CTA = () => {
   return (
     <section className="cta-section">
-      <div className="cta-badge">Start learning your way</div>
-      <h2 className="text-3xl font-bold">
-        Build and Personalize Your Learning Companion
+
+      {/* Badge */}
+      <div className="cta-badge flex items-center gap-2">
+        <Sparkles size={14} />
+        Personalised Learning
+      </div>
+
+      {/* Heading */}
+      <h2 className="text-2xl font-bold leading-tight text-white">
+        Learning without limits.
       </h2>
-      <p>
-         Pick a name, subject, voice, & personality — and start learning through voice conversations that feel natural and fun.
+
+      {/* Description */}
+      <p className="text-sm leading-relaxed text-slate-300">
+        Create your own AI companion, explore any subject
+        and learn at your own pace through interactive
+        voice conversations.
       </p>
-      <Image src={"images/cta.svg"} alt="cta" width={362} height={232} />
-      <button className="btn-primary">
-        <Image src={"/icons/plus.svg"} alt="plus" width={12} height={12}/>
-        <Link href="/companions/new" >
-          <p>Build a New Companion</p>
-        </Link>
 
-      </button>
+      {/* Illustration */}
+      <Image
+        src="/images/cta.svg"
+        alt="Personalised AI learning"
+        width={220}
+        height={180}
+        className="my-2 h-auto w-full max-w-[220px]"
+      />
+
+      {/* Create Companion Button */}
+      <Link
+        href="/companions/new"
+        className="btn-primary mt-auto w-full"
+      >
+        <Plus size={18} />
+        Create a Companion
+      </Link>
+
+      <p className="text-xs text-slate-400">
+        Your next learning adventure starts here.
+      </p>
+
     </section>
-  )
-}
+  );
+};
 
-export default CTA
+export default CTA;

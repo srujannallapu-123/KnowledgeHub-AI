@@ -45,3 +45,15 @@ next-env.d.ts
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Local AI development tools
+.agents/
+
+# Public environment templates
+!/.env.example
+!/backend/.env.example
+
+# Backend build and dependencies
+/backend/node_modules/
+/backend/dist/
+/backend/coverage/

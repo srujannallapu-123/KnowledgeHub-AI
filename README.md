@@ -1,229 +1,123 @@
-# Add Clerk Authentication
+# KnowledgeHub-AI
 
-Set up Clerk authentication with the Clerk CLI.
+An interactive full-stack AI learning platform that enables users to create personalised AI tutors, participate in real-time voice sessions and manage their learning journey.
 
-## Quick Setup
+## Features
 
-Before running any commands, present the user with a preliminary setup
-checklist:
+- Create, search, filter and manage personalised AI companions.
+- Real-time AI voice tutoring with live transcripts using Vapi.
+- Email/password and Google authentication with Auth.js.
+- Personal learning history and companion management.
+- Free, Pro and Premium subscription tiers with server-side usage limits.
+- Stripe sandbox checkout, billing portal and webhook integration.
+- Voice usage reservation and reconciliation based on actual call duration.
 
+## Technology stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | Next.js, React, TypeScript, Tailwind CSS, shadcn/ui |
+| Backend | Node.js, Express.js, TypeScript, REST APIs |
+| Database | PostgreSQL, SQL, node-postgres |
+| Authentication | Auth.js, bcrypt, JWT, Google OAuth |
+| Integrations | Vapi AI, Stripe |
+| Testing | Jest, React Testing Library, API integration checks |
+| Infrastructure | Docker, Docker Compose, GitHub Actions CI |
+
+## Architecture
+
+```mermaid
+graph TD
+    U[Browser] --> F[Next.js Frontend]
+    F --> A[Auth.js]
+    F --> B[Express REST API]
+    A --> D[PostgreSQL]
+    B --> D
+    B --> V[Vapi AI]
+    B --> S[Stripe]
+    S --> B
+    U --> V
 ```
-Here's what I'll do to get you set up with Clerk.
 
-1. Install or update the Clerk CLI
-2. Set up Clerk in this project, or scaffold a new app if it's empty
-3. Verify the Next.js proxy matcher when applicable
-4. Start your app with Clerk installed.
+The Next.js server authenticates users and issues short-lived signed tokens for protected backend requests. Express validates tokens, enforces companion ownership and subscription limits, and manages database operations. PostgreSQL stores account, companion, learning history, subscription and voice usage records.
 
-Shall I proceed?
-```
+## Local setup
 
-## Step 1: Install or update the Clerk CLI
+Prerequisites: Node.js 24, npm, Docker and Docker Compose.
 
-From the project root, check whether the Clerk CLI is already available:
+1. Clone the repository and enter the project directory.
+2. Copy `.env.example` to `.env.local` and `backend/.env.example` to `backend/.env`. Populate credentials using your own provider accounts. Use the same `API_JWT_SECRET` in both files.
+3. Initialise the local database:
 
 ```bash
-command -v clerk && clerk --version
+docker volume create backend_postgres_data
+docker compose up -d db
 ```
 
-If `clerk` is available, make sure it is up to date:
+Wait for PostgreSQL to become healthy (`docker compose ps`), then run the schema scripts in dependency order against the local database:
 
 ```bash
-clerk update --yes
+for file in create_auth_tables.sql create_companions.sql create_session_history.sql create_subscriptions.sql create_voice_usage.sql; do
+  docker exec -i knowledgehub-postgres psql -U knowledgehub -d knowledgehub_db -v ON_ERROR_STOP=1 < "backend/sql/$file" || break
+done
 ```
 
-If `clerk` is not available, install the latest version using the user's
-preferred install method. If they do not have a preference, use npm:
+Confirm every script succeeds before continuing.
 
 ```bash
-npm install -g clerk
+docker compose up --build -d
+docker compose ps
 ```
 
-Equivalent install commands are `pnpm install -g clerk`,
-`yarn global add clerk`, `bun add -g clerk`,
-`brew install clerk/stable/clerk`, or
-`curl -fsSL https://clerk.com/install | bash`.
+- Frontend: http://localhost:3000
+- Backend health: http://localhost:5000/api/health
+- Database health: http://localhost:5000/api/db-health
 
-## Step 2: Sign in to Clerk
+Configure the Google OAuth callback as `http://localhost:3000/api/auth/callback/google`. For local Stripe webhook testing, use the Stripe CLI to forward sandbox events to `http://localhost:5000/api/stripe/webhook` and configure the corresponding signing secret.
 
-Immediately after installing or updating the Clerk CLI, from the project
-root, run:
+## Database design
+
+| Tables | Responsibility |
+|---|---|
+| users, accounts, sessions, verification_token | Authentication |
+| companions | AI tutor configuration |
+| session_history | Learning activity |
+| subscriptions, stripe_webhook_events | Billing state and webhook deduplication |
+| voice_usage | Reserved and consumed voice time |
+
+## API overview
+
+| Endpoint | Purpose |
+|---|---|
+| GET /api/health | Service health |
+| GET /api/db-health | Database connectivity |
+| GET / POST /api/companions | List or create companions |
+| GET / PATCH / DELETE /api/companions/:id | Read, update or delete a companion |
+| GET /api/companions/permissions | Companion allowance |
+| GET /api/sessions/me | Personal session history |
+| POST /api/sessions | Record learning activity |
+| GET /api/stripe/subscription | Current subscription |
+| POST /api/stripe/webhook | Signed billing events |
+| GET /api/voice/permissions | Voice allowance |
+| POST /api/voice/call/web | Create a voice call |
+
+Protected endpoints require a valid backend JWT. Mutation endpoints enforce the applicable ownership and subscription rules.
+
+## Testing
 
 ```bash
-clerk auth login
+npm ci
+npx tsc --noEmit
+npm run test:ci
+npm run build
+cd backend
+npm ci
+npm run build
+node scripts/test-subscription-limits.cjs
 ```
 
-`clerk auth login` is the first command to run after install or update.
-Do not list apps, ask which Clerk app to use, or run `clerk init` before
-authenticating. It is okay for an agent to run this command and pause while
-the user completes the Clerk login flow, then continue from the CLI output.
-If the user is already signed in, continue to initialization.
+The subscription integration script requires a running local backend and local development database. GitHub Actions defines automated frontend and backend checks.
 
-## Step 3: Initialize Clerk
+## Project status
 
-Inspect the current directory to determine whether this is an existing
-project or an empty directory.
-
-This setup is linked to the Clerk application `app_3G0bu0dBldiKSvNuz3fsqiKwdkl`. Always
-pass `--app app_3G0bu0dBldiKSvNuz3fsqiKwdkl` to `clerk init` so the project links to
-the right Clerk app.
-
-If this is an existing project, run:
-
-```bash
-clerk init --app app_3G0bu0dBldiKSvNuz3fsqiKwdkl
-```
-
-`clerk init` detects the framework and package manager for existing
-projects. It installs the correct Clerk SDK and applies framework-specific
-setup when supported, such as providers, middleware, auth routes, and
-environment configuration. Do not pass `--framework` or `--pm` for
-existing projects unless the user explicitly wants to override detection or
-the CLI asks for those values.
-
-If the directory is empty, ask the user which framework and package manager
-they want to use. If they have no preference, use Next.js and npm. Then
-scaffold with explicit framework and package manager options:
-
-```bash
-clerk init --framework <framework> --pm <package-manager> --app app_3G0bu0dBldiKSvNuz3fsqiKwdkl
-```
-
-When choosing a package manager, use the user's preference. If the directory
-is not truly empty and contains a lockfile or package manager config, use
-these signals:
-
-- `pnpm-lock.yaml` -> `pnpm`
-- `yarn.lock` -> `yarn`
-- `bun.lock` or `bun.lockb` -> `bun`
-- `package-lock.json` -> `npm`
-
-If no package manager can be detected and the user has no preference, use
-`npm`.
-
-## Step 4: Verify the Next.js matcher
-
-After `clerk init`, if the project uses Next.js, check `proxy.ts` or
-`middleware.ts` for Next.js 15 and earlier. Make sure `config.matcher`
-includes Clerk's auto-proxy path once, after the API/TRPC matcher:
-
-```ts
-'/(api|trpc)(.*)',
-'/__clerk/:path*',
-```
-
-Add `'/__clerk/:path*'` if it is missing.
-
-## Step 5: Fall back to docs when init is incomplete
-
-If `clerk init` reports that the framework is unsupported, cannot be
-detected, or does not support full scaffolding, follow the official
-quickstart instead.
-
-`clerk init` currently has full scaffolding for Next.js, Astro, Nuxt,
-TanStack Start, React Router, Vue, React, and JavaScript/Vite. It can detect
-Expo, Express, and Fastify, but may direct you to docs for the remaining
-integration steps.
-
-| Dependency | Quickstart |
-|------------|-----------|
-| `next` | https://clerk.com/docs/nextjs/getting-started/quickstart |
-| `@remix-run/react` | https://clerk.com/docs/remix/getting-started/quickstart |
-| `astro` | https://clerk.com/docs/astro/getting-started/quickstart |
-| `nuxt` | https://clerk.com/docs/nuxt/getting-started/quickstart |
-| `react-router` | https://clerk.com/docs/react-router/getting-started/quickstart |
-| `@tanstack/react-start` | https://clerk.com/docs/tanstack-react-start/getting-started/quickstart |
-| `react` | https://clerk.com/docs/react/getting-started/quickstart |
-| `vue` | https://clerk.com/docs/vue/getting-started/quickstart |
-| `vite` or vanilla JS | https://clerk.com/docs/js-frontend/getting-started/quickstart |
-| `express` | https://clerk.com/docs/expressjs/getting-started/quickstart |
-| `fastify` | https://clerk.com/docs/fastify/getting-started/quickstart |
-| `expo` | https://clerk.com/docs/expo/getting-started/quickstart |
-
-Other platforms: Chrome Extension, Android, and iOS at
-https://clerk.com/docs/llms.txt
-
-## Step 6: Ensure clear auth controls are visible
-
-Make sure the app has clear sign-in, sign-up, and signed-in user controls so
-the user can create and recognize their first account. Integrate them into
-the existing layout, navigation, or landing screen so they feel natural and
-polished.
-
-For Next.js App Router, use Clerk components from `@clerk/nextjs` such as
-`SignInButton`, `SignUpButton`, `Show`, and `UserButton`. Show
-sign-in and sign-up actions when signed out, and a user button when signed
-in:
-
-```tsx
-import { SignInButton, SignUpButton, Show, UserButton } from '@clerk/nextjs'
-
-<>
-  <Show when="signed-out">
-    <SignInButton />
-    <SignUpButton />
-  </Show>
-  <Show when="signed-in">
-    <UserButton />
-  </Show>
-</>
-```
-
-For other frameworks, use the equivalent Clerk components or helpers. If
-clear auth controls already exist, reuse or adapt them instead of
-duplicating them.
-
-## Step 7: Verify the setup
-
-After `clerk init` completes, run:
-
-```bash
-clerk doctor
-```
-
-Then start the app, confirm the sign-in, sign-up, and signed-in user
-controls are visible, test the sign-in and sign-up flow, and fix any issues
-reported by the CLI.
-
-## Step 8: If using shadcn/ui
-
-If `components.json` exists in the project root and Clerk components are
-used:
-
-```bash
-npm install @clerk/ui
-```
-
-Apply the theme in your provider:
-```tsx
-import { shadcn } from '@clerk/ui/themes'
-<ClerkProvider appearance={{ theme: shadcn }}>{children}</ClerkProvider>
-```
-
-Add to global CSS:
-```css
-@import '@clerk/ui/themes/shadcn.css';
-```
-
-## Critical rules
-
-- Next.js 15+: `auth()` is async. Always `await auth()`
-- `ClerkProvider` goes inside `<body>`, not wrapping `<html>`
-- Next.js proxy matchers include `'/__clerk/:path*'` after
-  `'/(api|trpc)(.*)'`
-- Never expose `CLERK_SECRET_KEY` in client code
-- Use `@clerk/nextjs`, not `@clerk/clerk-react`
-- Do not read or print existing environment variable files; ask the user
-  for any missing non-sensitive configuration
-
-Docs: https://clerk.com/docs/cli https://clerk.com/docs/llms.txt
-
-## After Setup
-
-Have the user sign up as their first test user in the nav. After signup
-succeeds and a profile icon appears, congratulate them. If a "Configure
-your application" callout appears, tell them to click it. Then recommend
-exploring: Organizations
-(https://clerk.com/docs/guides/organizations/overview), Components
-(https://clerk.com/docs/reference/components/overview), and the Dashboard
-(https://dashboard.clerk.com/).
+This project is a portfolio application. Stripe payments operate in sandbox mode and are not real charges. Voice provider usage may incur costs. Public deployment requires appropriate provider credentials, spend controls, and production environment configuration. Abandoned voice reservations may require manual reconciliation. The local Docker frontend runs in development mode.
