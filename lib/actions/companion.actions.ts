@@ -1,146 +1,191 @@
-'use server';
+
+"use server";
 
 import { CreateCompanion, GetAllCompanions } from "@/types";
-import { createSupabaseClient } from "../supabase";
-import { auth } from "@clerk/nextjs/server";
-import { PostgrestBuilder, PostgrestQueryBuilder } from "@supabase/supabase-js";
+import { apiFetch } from "@/lib/api";
+import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 
-export const createCompanion = async (formData: CreateCompanion) => {
-    const { userId: author } = await auth();
-    const supabase = createSupabaseClient();
+interface Companion {
+  id: string;
+  name: string;
+  subject: string;
+  topic: string;
+  voice: string;
+  style: string;
+  duration: number;
+  author: string;
+  created_at: string;
+}
 
-    const { data, error } = await supabase
-        .from('companions')
-        .insert({ ...formData, author })
-        .select();
+interface SessionHistory {
+  id: string;
+  companion_id: string;
+  user_id: number;
+  created_at: string;
+}
 
-    if (error || !data) {
-        throw new Error(error?.message || 'Failed to create a companion');
+interface CompanionPermissions {
+  plan: "free" | "pro" | "premium";
+  currentCount: number;
+  limit: number | null;
+  remaining: number | null;
+  canCreate: boolean;
+}
+
+// Create a companion
+export const createCompanion = async (
+  formData: CreateCompanion
+) => {
+  const companion = await apiFetch<Companion>(
+    "/companions",
+    {
+      method: "POST",
+      body: JSON.stringify(formData),
     }
+  );
 
-    return data[0];
+  revalidatePath("/");
+  revalidatePath("/companions");
+  revalidatePath("/companions/new");
+  revalidatePath("/my-journey");
+
+  return companion;
 };
 
-export const getAllCompanions = async({limit = 10, page=1, subject, topic}: GetAllCompanions) =>{
-    const supabase = createSupabaseClient();
+// Get all companions with search and filtering
+export const getAllCompanions = async ({
+  limit = 10,
+  page = 1,
+  subject,
+  topic,
+}: GetAllCompanions) => {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    page: String(page),
+  });
 
-    let query = supabase.from('companions').select();
+  if (subject) {
+    params.set(
+      "subject",
+      Array.isArray(subject)
+        ? subject[0] ?? ""
+        : subject
+    );
+  }
 
-    if(subject && topic){
-       query = query.ilike('subject',`%${subject}%`)
-         .or(`topic.ilike.%${topic}%,name.ilike.%${topic}%`)
-    }else if(subject){
-        query = query.ilike('subject',`%${subject}%`)
-    }else if(topic){
-       query = query.or(`topic.ilike.%${topic}%,name.ilike.%${topic}%`)
+  if (topic) {
+    params.set(
+      "topic",
+      Array.isArray(topic)
+        ? topic[0] ?? ""
+        : topic
+    );
+  }
+
+  return apiFetch<Companion[]>(
+    `/companions?${params.toString()}`,
+    {},
+    false
+  );
+};
+
+// Get a single companion
+export const getCompanion = async (id: string) => {
+  return apiFetch<Companion>(
+    `/companions/${encodeURIComponent(id)}`
+  );
+};
+
+// Save session history
+export const addToSessionHistory = async (
+  companionId: string
+) => {
+  const result = await apiFetch<SessionHistory>(
+    "/sessions",
+    {
+      method: "POST",
+      body: JSON.stringify({ companionId }),
     }
+  );
 
+  revalidatePath("/");
+  revalidatePath("/my-journey");
 
-    query = query.range((page - 1) * limit, page * limit -1)
+  return result;
+};
 
-    const {data: companions, error} = await query;
-
-    if(error) throw new Error(error.message);
-
-    return companions;
-}
-
-
-export const getCompanion = async(id: string) => {
-    const supabase = createSupabaseClient();
-
-    const {data, error} = await supabase
-      .from('companions')
-      .select()
-      .eq('id',id);
-
-      if(error) return console.log(error);
-
-      return data[0];
-}
-
-export const addToSessionHistory = async (companionId: string) => {
-    const { userId } = await auth();
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase.from('session_history')
-        .insert({
-            companion_id: companionId,
-            user_id: userId,
-        })
-
-    if(error) throw new Error(error.message);
-
-    return data;
-}
-
+// Get recent sessions
 export const getRecentSessions = async (limit = 10) => {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-        .from('session_history')
-        .select(`companions:companion_id (*)`)
-        .order('created_at', { ascending: false })
-        .limit(limit)
+  return apiFetch<Companion[]>(
+    `/sessions/recent?limit=${limit}`,
+    {},
+    false
+  );
+};
 
-    if(error) throw new Error(error.message);
+// Get authenticated user's sessions
+export const getUserSessions = async (
+  userId: string,
+  limit = 10
+) => {
+  const session = await auth();
 
-    return data.map(({ companions }) => companions);
-}
+  if (!session?.user?.id || session.user.id !== userId) {
+    throw new Error("Unauthorized");
+  }
 
-export const getUserSessions = async (userId: string, limit = 10) => {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-        .from('session_history')
-        .select(`companions:companion_id (*)`)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(limit)
+  return apiFetch<Companion[]>(
+    `/sessions/me?limit=${limit}`
+  );
+};
 
-    if(error) throw new Error(error.message);
+// Get authenticated user's companions
+export const getUserCompanions = async (
+  userId: string
+) => {
+  const session = await auth();
 
-    return data.map(({ companions }) => companions);
-}
+  if (!session?.user?.id || session.user.id !== userId) {
+    throw new Error("Unauthorized");
+  }
 
+  return apiFetch<Companion[]>("/companions/me");
+};
 
-export const getUserCompanions = async (userId: string) => {
-    const supabase = createSupabaseClient();
-    const { data, error } = await supabase
-        .from('companions')
-        .select()
-        .eq('author', userId)
+// Get subscription-based companion permissions
+export const getCompanionPermissions = async () => {
+  return apiFetch<CompanionPermissions>(
+    "/companions/permissions"
+  );
+};
 
-    if(error) throw new Error(error.message);
-
-    return data;
-}
-
+// Check whether the user can create a companion
 export const newCompanionPermissions = async () => {
-    const { userId, has } = await auth();
-    const supabase = createSupabaseClient();
+  const session = await auth();
 
-    let limit = 0;
+  if (!session?.user?.id) {
+    return false;
+  }
 
-    if(has({ plan: 'pro' })) {
-        return true;
-    } else if(has({ feature: "3_companion_limit" })) {
-        limit = 3;
-    } else if(has({ feature: "10_companion_limit" })) {
-        limit = 10;
-    }
+  const permissions = await getCompanionPermissions();
 
-     const { data, error } = await supabase
-        .from('companions')
-        .select('id', { count: 'exact' })
-        .eq('author', userId)
+  return permissions.canCreate;
+};
 
-    if(error) throw new Error(error.message);
+// Delete a companion
+export const deleteCompanion = async (id: string) => {
+  const result = await apiFetch<{
+    message: string;
+    id: string;
+  }>(`/companions/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 
-    const companionCount = data?.length;
+  revalidatePath("/");
+  revalidatePath("/companions");
+  revalidatePath("/companions/new");
+  revalidatePath("/my-journey");
 
-    if(companionCount >= limit) {
-        return false
-    } else {
-        return true;
-    }
-}
-
+  return result;
+};
