@@ -115,12 +115,16 @@ export const addToSessionHistory = async (
   return result;
 };
 
-// Get recent sessions
+// Get recent sessions for the authenticated user
 export const getRecentSessions = async (limit = 10) => {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return [];
+  }
+
   return apiFetch<Companion[]>(
-    `/sessions/recent?limit=${limit}`,
-    {},
-    false
+    `/sessions/me?limit=${limit}`
   );
 };
 

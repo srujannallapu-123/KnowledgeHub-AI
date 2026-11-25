@@ -35,6 +35,22 @@ router.get("/permissions", requireAuth, async (req, res) => {
 router.post("/call/web", requireAuth, async (req, res) => {
   const userId = Number(res.locals.userId);
 
+    // Restrict hosted voice sessions to approved demo accounts
+  if (process.env.VOICE_RESTRICT_ACCESS === "true") {
+    const allowedUserIds = (
+      process.env.VOICE_ALLOWED_USER_IDS || ""
+    )
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (!allowedUserIds.includes(String(userId))) {
+      return res.status(403).json({
+        message: "Voice sessions are currently limited to approved demo accounts.",
+      });
+    }
+  }
+
   // Only accept the companion ID from the SDK request
   const companionId = req.body?.assistantId;
 

@@ -48,44 +48,10 @@ router.post("/", requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/sessions/recent
-router.get("/recent", async (req, res) => {
-  try {
-    const limit = Number(req.query.limit ?? 10);
-
-    if (
-      !Number.isInteger(limit) ||
-      limit < 1 ||
-      limit > 100
-    ) {
-      return res.status(400).json({
-        message: "Invalid limit",
-      });
-    }
-
-    const result = await pool.query(
-      `SELECT c.*
-       FROM session_history AS sh
-       INNER JOIN companions AS c
-       ON sh.companion_id = c.id
-       ORDER BY sh.created_at DESC, sh.id DESC
-       LIMIT $1`,
-      [limit]
-    );
-
-    res.status(200).json(result.rows);
-
-  } catch (error) {
-    console.error("Failed to fetch recent sessions:", error);
-
-    res.status(500).json({
-      message: "Failed to fetch recent sessions",
-    });
-  }
-});
-
 // GET /api/sessions/me
-router.get("/me", requireAuth, async (req, res) => {
+// GET /api/sessions/recent
+// Both endpoints return only the authenticated user's sessions
+router.get(["/me", "/recent"], requireAuth, async (req, res) => {
   try {
     const userId = res.locals.userId;
     const limit = Number(req.query.limit ?? 10);
@@ -111,6 +77,7 @@ router.get("/me", requireAuth, async (req, res) => {
       [userId, limit]
     );
 
+    res.set("Cache-Control", "private, no-store");
     res.status(200).json(result.rows);
 
   } catch (error) {
